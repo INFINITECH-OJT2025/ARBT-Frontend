@@ -19,34 +19,60 @@ export default function CartPage() {
   // console.log("User ID from localStorage:", userId);
   // Check if userId is fetched correctly
 
+
+
   useEffect(() => {
-    const storedCart = localStorage.getItem("cart");
-    if (storedCart) {
-      setCartItems(JSON.parse(storedCart));
+    if (typeof window !== "undefined") {
+      const storedCart = localStorage.getItem("cart");
+      if (storedCart) {
+        try {
+          setCartItems(JSON.parse(storedCart)); // ✅ Safely parse JSON
+        } catch (error) {
+          console.error("Error parsing cart data:", error);
+        }
+      }
     }
   }, []);
+  
 
   const updateQuantity = (id: number, newQuantity: number) => {
-    const updatedCart = cartItems.map((item) =>
-      item.id === id ? { ...item, quantity: Math.max(1, newQuantity) } : item
-    );
-
-    setCartItems(updatedCart);
-    localStorage.setItem("cart", JSON.stringify(updatedCart));
-
-    // Dispatch update event for Navbar
-    window.dispatchEvent(new Event("cartUpdate"));
+    if (typeof window === "undefined") return; // ✅ Prevent server-side execution
+  
+    if (isNaN(newQuantity) || newQuantity < 1) newQuantity = 1; // ✅ Ensure valid quantity
+  
+    setCartItems((prevCart) => {
+      const updatedCart = prevCart.map((item) =>
+        item.id === id ? { ...item, quantity: newQuantity } : item
+      );
+  
+      localStorage.setItem("cart", JSON.stringify(updatedCart)); // ✅ Store updated cart
+  
+      // ✅ Only dispatch event if there's an actual change
+      if (JSON.stringify(prevCart) !== JSON.stringify(updatedCart)) {
+        window.dispatchEvent(new Event("cartUpdate"));
+      }
+  
+      return updatedCart; // ✅ Ensure correct state update
+    });
   };
+  
 
   const removeFromCart = (id: number) => {
-    const updatedCart = cartItems.filter((item) => item.id !== id);
-
-    setCartItems(updatedCart);
-    localStorage.setItem("cart", JSON.stringify(updatedCart));
-
-    // Dispatch update event for Navbar
-    window.dispatchEvent(new Event("cartUpdate"));
+    if (typeof window === "undefined") return; // ✅ Prevent server-side execution
+  
+    setCartItems((prevCart) => {
+      const updatedCart = prevCart.filter((item) => item.id !== id);
+  
+      // ✅ Only update localStorage and dispatch event if the cart actually changed
+      if (prevCart.length !== updatedCart.length) {
+        localStorage.setItem("cart", JSON.stringify(updatedCart));
+        window.dispatchEvent(new Event("cartUpdate"));
+      }
+  
+      return updatedCart; // ✅ Ensure correct state update
+    });
   };
+  
 
   const totalPrice = cartItems.reduce(
     (sum, item) => sum + Number(item.price) * item.quantity,

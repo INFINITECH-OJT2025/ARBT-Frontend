@@ -33,22 +33,33 @@ export const Navbar = () => {
 
   // Function to check authentication state
   const checkAuthStatus = () => {
+    if (typeof window === "undefined") return; // ✅ Prevent execution on the server-side
+  
     const token = localStorage.getItem("token");
     setIsAuthenticated(!!token);
   };
-
+  
   // ✅ Load Cart Count
   const loadCartCount = () => {
-    const savedCart = localStorage.getItem("cart");
-    if (savedCart) {
-      const cartItems = JSON.parse(savedCart);
-      const totalQuantity = cartItems.reduce(
-        (total: number, item: any) => total + (item.quantity || 1),
-        0
-      );
-      setCartCount(totalQuantity);
-    } else {
-      setCartCount(0);
+    if (typeof window === "undefined") return; // ✅ Ensure it's running only on the client-side
+  
+    try {
+      const savedCart = localStorage.getItem("cart");
+      if (savedCart) {
+        const cartItems = JSON.parse(savedCart);
+        if (!Array.isArray(cartItems)) throw new Error("Invalid cart data"); // ✅ Ensure it's an array
+  
+        const totalQuantity = cartItems.reduce(
+          (total: number, item: any) => total + (item.quantity || 1),
+          0
+        );
+        setCartCount(totalQuantity);
+      } else {
+        setCartCount(0);
+      }
+    } catch (error) {
+      console.error("❌ Error loading cart:", error);
+      setCartCount(0); // ✅ Reset cart count if an error occurs
     }
   };
 
@@ -74,24 +85,35 @@ export const Navbar = () => {
 
   // Logout Function
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    setIsAuthenticated(false);
-    window.dispatchEvent(new Event("authChange"));
-
-    // ✅ Show Toast Notification
-    toast.success("Successfully logged out!", {
-      position: "top-right",
-      autoClose: 3000, // Auto close in 3 seconds
-      hideProgressBar: false,
-      closeOnClick: true,
-      pauseOnHover: true,
-      draggable: true,
-      progress: undefined,
-    });
-
-    setTimeout(() => {
-      router.push("/login"); // Redirect after toast
-    }, 2000);
+    if (typeof window === "undefined") return; // ✅ Prevent execution on the server-side
+  
+    try {
+      localStorage.removeItem("token");
+      localStorage.removeItem("role"); // ✅ Ensure all auth-related data is removed
+      setIsAuthenticated(false);
+      window.dispatchEvent(new Event("authChange"));
+  
+      // ✅ Show Toast Notification
+      toast.success("Successfully logged out!", {
+        position: "top-right",
+        autoClose: 3000, // Auto close in 3 seconds
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+      });
+  
+      // ✅ Ensure router is available before redirecting
+      if (router) {
+        setTimeout(() => {
+          router.push("/login");
+        }, 2000); // Redirect after toast
+      }
+    } catch (error) {
+      console.error("❌ Error during logout:", error);
+      toast.error("Failed to log out. Please try again.");
+    }
   };
 
   // ✅ Hide Navbar if on Login or Signup page

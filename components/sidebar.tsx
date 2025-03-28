@@ -29,11 +29,14 @@ const Sidebar = () => {
   const pathname = usePathname();
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("role");
-    window.dispatchEvent(new Event("authChange"));
-
-    // Show toast notification
+    if (typeof window !== "undefined") {
+      // ✅ Ensure code runs only on the client-side
+      localStorage.removeItem("token");
+      localStorage.removeItem("role");
+      window.dispatchEvent(new Event("authChange"));
+    }
+  
+    // ✅ Show toast notification
     toast.success("Successfully logged out!", {
       position: "top-right",
       autoClose: 3000, // Auto close in 3 seconds
@@ -43,8 +46,8 @@ const Sidebar = () => {
       draggable: true,
       progress: undefined,
     });
-
-    // Redirect after a short delay to allow toast to be seen
+  
+    // ✅ Redirect after a short delay
     setTimeout(() => {
       router.push("/");
     }, 1500);

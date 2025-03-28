@@ -101,6 +101,8 @@ export default function AdminPayments() {
   };
 
   const handleAcceptPayment = async (paymentId: number) => {
+    if (typeof window === "undefined") return; // ✅ Prevent SSR errors
+  
     const toastId = toast.info("Processing payment...", {
       position: "top-right",
       autoClose: false,
@@ -110,7 +112,7 @@ export default function AdminPayments() {
       draggable: false,
       icon: false, // ✅ Prevent default Toastify icon
     });
-
+  
     try {
       const token = localStorage.getItem("token");
       if (!token) {
@@ -122,7 +124,7 @@ export default function AdminPayments() {
         });
         return;
       }
-
+  
       await axios.put(
         `http://127.0.0.1:8000/api/admin/payments/${paymentId}/accept`,
         {},
@@ -133,19 +135,18 @@ export default function AdminPayments() {
           },
         }
       );
-
+  
       setPayments((prevPayments) =>
         prevPayments.map((p) =>
           p.id === paymentId ? { ...p, status: "Completed" } : p
         )
       );
-
+  
       // ✅ Update toast with success
       toast.update(toastId, {
         render: (
           <div className="flex gap-2 items-center">
             <FaCheckCircle className="text-green-500 text-lg" />{" "}
-            {/* ✅ Green Check Icon */}
             <span>Payment Accepted Successfully!</span>
           </div>
         ),
@@ -159,10 +160,7 @@ export default function AdminPayments() {
         render: (
           <div className="flex gap-2 items-center">
             <FaTimesCircle className="text-lg text-red-500" />{" "}
-            {/* ❌ Red Error Icon */}
-            <span>
-              {err.response?.data?.message || "Something went wrong."}
-            </span>
+            <span>{err.response?.data?.message || "Something went wrong."}</span>
           </div>
         ),
         type: "error",
@@ -170,11 +168,15 @@ export default function AdminPayments() {
         isLoading: false,
         icon: false,
       });
+    } finally {
+      toast.dismiss(toastId); // ✅ Ensure toast is dismissed properly
     }
   };
 
   // ✅ Handle Decline Payment (Kept your pattern)
   const handleDeclinePayment = async (paymentId: number) => {
+    if (typeof window === "undefined") return; // ✅ Prevent SSR errors
+  
     const toastId = toast.info("Processing decline...", {
       position: "top-right",
       autoClose: false,
@@ -184,7 +186,7 @@ export default function AdminPayments() {
       draggable: false,
       icon: false,
     });
-
+  
     try {
       const token = localStorage.getItem("token");
       if (!token) {
@@ -196,7 +198,7 @@ export default function AdminPayments() {
         });
         return;
       }
-
+  
       await axios.put(
         `http://127.0.0.1:8000/api/admin/payments/${paymentId}/decline`,
         {},
@@ -207,19 +209,18 @@ export default function AdminPayments() {
           },
         }
       );
-
+  
       setPayments((prevPayments) =>
         prevPayments.map((p) =>
           p.id === paymentId ? { ...p, status: "Failed" } : p
         )
       );
-
-      // ✅ Show a red toast with a single ❌ icon
+  
+      // ✅ Show a red toast with a ❌ icon
       toast.update(toastId, {
         render: (
           <div className="flex gap-2 items-center">
             <FaTimesCircle className="text-lg text-red-500" />{" "}
-            {/* ❌ Red Cross Icon */}
             <span>Payment Declined Successfully!</span>
           </div>
         ),
@@ -243,8 +244,11 @@ export default function AdminPayments() {
         isLoading: false,
         icon: false,
       });
+    } finally {
+      toast.dismiss(toastId); // ✅ Ensure toast is dismissed properly
     }
   };
+
 
   return (
     <div className="flex pl-0 md:pl-60 bg-gray-100 dark:bg-gray-900 min-h-screen overflow-hidden">

@@ -79,30 +79,34 @@ export default function UserTrackerList() {
   // ✅ Fetch logged-in user details
   useEffect(() => {
     const fetchUserProfile = async () => {
+      if (typeof window === "undefined") return; // ✅ Prevent execution on the server-side
+  
       try {
         const token = localStorage.getItem("token");
         if (!token) {
-          router.push("/login"); // Redirect if not logged in
+          router.replace("/login"); // ✅ Use `replace` to prevent going back to this page
           return;
         }
-
+  
         const response = await axios.get("http://127.0.0.1:8000/api/profile", {
           headers: { Authorization: `Bearer ${token}` },
         });
-
+  
         // ✅ Store Name & Email in State
         setFormData((prev) => ({
           ...prev,
-          name: response.data.name,
-          email: response.data.email,
+          name: response.data.name || "",
+          email: response.data.email || "",
         }));
       } catch (error) {
         console.error("❌ Failed to fetch user profile:", error);
+        toast.error("Failed to load profile. Please try again.");
       }
     };
-
+  
     fetchUserProfile();
   }, [router]);
+  
 
   // Fetch bookings (User-side)
   useEffect(() => {
@@ -142,52 +146,50 @@ export default function UserTrackerList() {
 
   useEffect(() => {
     const fetchUserShopTracker = async () => {
+      if (typeof window === "undefined") return; // ✅ Prevent execution on the server-side
+  
       try {
         const token = localStorage.getItem("token");
-
         if (!token) {
-          console.error("❌ No token found in localStorage.");
-          alert("❌ No token found.");
+          toast.error("❌ You are not logged in!");
           return;
         }
-
-        const response = await fetch(
-          "http://127.0.0.1:8000/api/user-shop-tracker",
-          {
-            method: "GET",
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          }
-        );
-
+  
+        const response = await fetch("http://127.0.0.1:8000/api/user-shop-tracker", {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+  
         if (!response.ok) {
-          console.error(
-            "❌ Failed to fetch shop tracker:",
-            response.statusText
-          );
-          alert(`❌ Failed to fetch shop tracker: ${response.statusText}`);
-          return;
+          throw new Error(`Failed to fetch shop tracker: ${response.statusText}`);
         }
-
+  
         const data = await response.json();
-        if (data && data.user_shop_tracker) {
-          setOrders(data.user_shop_tracker); // ✅ Set orders data
+        if (data?.user_shop_tracker) {
+          setOrders(data.user_shop_tracker); // ✅ Update orders state
         } else {
-          console.error("❌ No user shop tracker data found.");
-          alert("❌ No user shop tracker data found.");
+          toast.warning("No shop tracker data found.");
         }
-      } catch (error) {
-        console.error("❌ Failed to fetch shop tracker:", error);
-        alert("❌ Failed to fetch shop tracker.");
+      } catch (error: unknown) {
+        let errorMessage = "Failed to fetch shop tracker.";
+  
+        if (error instanceof Error) {
+          errorMessage = error.message; // ✅ Get error message safely
+        }
+  
+        console.error("❌ Error fetching shop tracker:", error);
+        toast.error(errorMessage);
       } finally {
         setLoading(false);
       }
     };
-
+  
     fetchUserShopTracker();
   }, []);
+  
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row bg-yellow-50 dark:bg-gray-900 p-6 gap-6">

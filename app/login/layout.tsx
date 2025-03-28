@@ -21,42 +21,58 @@ export default function SignIn() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-
+  
     // ✅ Validation: Check if fields are empty
     if (!email.trim() || !password.trim()) {
       toast.error("Email and password are required!"); // 🚨 Show error toast
       return;
     }
-
+  
     try {
       const response = await axios.post("http://127.0.0.1:8000/api/login", {
         email,
         password,
       });
-
-      const { id, token, role } = response.data;
-
-      if (token) {
-        // ✅ Store token and role
+  
+      const { id, token, role } = response.data || {};
+  
+      if (!token) {
+        throw new Error("Invalid response from server");
+      }
+  
+      if (typeof window !== "undefined") {
+        // ✅ Store token and role in localStorage
         localStorage.setItem("token", token);
         localStorage.setItem("user_id", String(id));
         localStorage.setItem("role", role);
-
-        window.dispatchEvent(new Event("authChange")); // ✅ Update state
-
-        toast.success("Login successful! Redirecting..."); // ✅ Success toast
-
-        setTimeout(() => {
-          router.push(role === "admin" ? "/admin" : "/");
-        }, 1500);
-      } else {
-        throw new Error("Invalid response from server");
+  
+        window.dispatchEvent(new Event("authChange")); // ✅ Notify other components
       }
-    } catch (err: any) {
-      const errorMessage =
-        err.response?.data?.message || "Invalid email or password.";
+  
+      toast.success("✅ Login successful! Redirecting..."); // ✅ Success toast
+  
+      setTimeout(() => {
+        try {
+          if (typeof router !== "undefined") {
+            router.push(role === "admin" ? "/admin" : "/");
+          } else {
+            console.warn("⚠️ Router is not available.");
+          }
+        } catch (error) {
+          console.error("Navigation error:", error);
+        }
+      }, 1500);
+    } catch (error: unknown) {
+      let errorMessage = "Invalid email or password.";
+  
+      if (axios.isAxiosError(error)) {
+        errorMessage = error.response?.data?.message || errorMessage;
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+  
       setError(errorMessage);
-      toast.error(errorMessage); // 🚨 Show error toast
+      toast.error(`❌ ${errorMessage}`); // 🚨 Show error toast
     }
   };
 

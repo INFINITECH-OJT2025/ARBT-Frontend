@@ -23,34 +23,33 @@ export default function ProfilePage() {
   });
 
   // ✅ Fetch User Profile
-  useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        const token = localStorage.getItem("token");
-        if (!token) {
-          router.push("/login");
-          return;
-        }
-
-        const response = await axios.get("http://127.0.0.1:8000/api/profile", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
-        setUser(response.data);
-        setFormData({
-          ...response.data,
-          password: "",
-          password_confirmation: "",
-        });
-      } catch (err) {
-        toast.error("Failed to load profile!", { position: "top-right" });
-      } finally {
-        setLoading(false);
+  const fetchProfile = async (setUser: any, setFormData: any, setLoading: any, router: any) => {
+    try {
+      if (typeof window === "undefined") return; // ✅ Ensure client-side execution
+  
+      const token = localStorage.getItem("token");
+      if (!token) {
+        router.push("/login");
+        return;
       }
-    };
-
-    fetchProfile();
-  }, [router]);
+  
+      const response = await axios.get("http://127.0.0.1:8000/api/profile", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+  
+      setUser(response.data);
+      setFormData({
+        ...response.data,
+        password: "",
+        password_confirmation: "",
+      });
+    } catch (err) {
+      toast.error("Failed to load profile!", { position: "top-right" });
+    } finally {
+      setLoading(false);
+    }
+  };
+  
 
   // ✅ Handle Form Input Changes
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -60,24 +59,35 @@ export default function ProfilePage() {
   // ✅ Handle Profile Update with Toast
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
+  
     try {
+      if (typeof window === "undefined") return; // ✅ Ensure client-side execution
+  
       const token = localStorage.getItem("token");
-
+      if (!token) {
+        toast.error("You must be logged in to update your profile.", { position: "top-right" });
+        return;
+      }
+  
       const response = await axios.put(
         "http://127.0.0.1:8000/api/profile/update",
         formData,
         {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json" // ✅ Ensure correct content type
+          },
         }
       );
-
+  
       setUser(response.data.user);
       toast.success("Profile updated successfully!", { position: "top-right" });
-    } catch (err) {
-      toast.error("Failed to update profile. Please try again.", {
-        position: "top-right",
-      });
+    } catch (err: any) {
+      console.error("❌ Error updating profile:", err);
+  
+      // ✅ Handle API errors properly
+      const errorMessage = err.response?.data?.message || "Failed to update profile. Please try again.";
+      toast.error(errorMessage, { position: "top-right" });
     }
   };
 

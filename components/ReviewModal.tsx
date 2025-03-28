@@ -45,10 +45,18 @@ export default function ReviewModal({ orderId, isOpen, onClose }: ReviewModalPro
 
     const checkExistingReview = async () => {
       try {
+        if (typeof window === "undefined") return; // ✅ Ensure this runs only on the client side
+    
+        const token = localStorage.getItem("token");
+        if (!token) {
+          console.warn("⚠️ No authentication token found.");
+          return;
+        }
+    
         const response = await axios.get("http://127.0.0.1:8000/api/reviews", {
-          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+          headers: { Authorization: `Bearer ${token}` },
         });
-
+    
         const existingReview = response.data.find((review: any) => review.order_id === orderId);
         if (existingReview) setHasReviewed(true);
       } catch (err) {
@@ -76,23 +84,32 @@ export default function ReviewModal({ orderId, isOpen, onClose }: ReviewModalPro
   
     setLoading(true);
     try {
+      if (typeof window === "undefined") return; // ✅ Ensure client-side execution
+  
+      const token = localStorage.getItem("token");
+      if (!token) {
+        toast.error("❌ You are not logged in! Please log in to submit a review.");
+        return;
+      }
+  
       await axios.post(
         "http://127.0.0.1:8000/api/reviews",
         { order_id: orderId, comment },
-        { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
       );
   
       // ✅ Ensure toast fires correctly
-      toast.success("Review submitted successfully!", {
+      toast.success("✅ Review submitted successfully!", {
         position: "top-right",
         autoClose: 3000,
-     
       });
   
       setHasReviewed(true);
       onClose();
     } catch (err: any) {
-      toast.error(err.response?.data?.message || "Something went wrong.", {
+      toast.error(err.response?.data?.message || "❌ Something went wrong.", {
         position: "top-right",
         autoClose: 3000,
         hideProgressBar: false,

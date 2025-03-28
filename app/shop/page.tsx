@@ -29,10 +29,22 @@ export default function ShopPage() {
 
   // ✅ Check authentication when the page loads
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    setIsAuthenticated(!!token);
+    const checkAuthStatus = () => {
+      const token = localStorage.getItem("token");
+      setIsAuthenticated(!!token);
+    };
+  
+    checkAuthStatus(); // ✅ Check auth on mount
+  
+    // ✅ Listen for authentication changes (e.g., login/logout)
+    const handleAuthChange = () => checkAuthStatus();
+    window.addEventListener("authChange", handleAuthChange);
+  
+    return () => {
+      window.removeEventListener("authChange", handleAuthChange);
+    };
   }, []);
-
+  
   useEffect(() => {
     const fetchProducts = async () => {
       try {
@@ -65,25 +77,46 @@ export default function ShopPage() {
 
   // ✅ Function to Add to Cart
   const addToCart = (product: Product) => {
-    let cart = JSON.parse(localStorage.getItem("cart") || "[]");
-
-    const existingItem = cart.find((item: Product) => item.id === product.id);
-
-    if (existingItem) {
-      existingItem.quantity += 1;
-    } else {
-      cart.push({ ...product, quantity: 1 });
+    try {
+      // ✅ Get the cart from localStorage (default to empty array if not found)
+      const cart: Product[] = JSON.parse(localStorage.getItem("cart") || "[]");
+  
+      // ✅ Ensure 'cart' is always an array
+      if (!Array.isArray(cart)) {
+        console.error("Cart data is corrupted. Resetting cart.");
+        localStorage.setItem("cart", JSON.stringify([]));
+        return;
+      }
+  
+      // ✅ Find the existing product in the cart
+      const existingItem = cart.find((item) => item.id === product.id);
+  
+      if (existingItem) {
+        existingItem.quantity = (existingItem.quantity || 0) + 1; // ✅ Ensure quantity is always defined
+      } else {
+        cart.push({ ...product, quantity: 1 });
+      }
+  
+      // ✅ Save updated cart back to localStorage
+      localStorage.setItem("cart", JSON.stringify(cart));
+  
+      // ✅ Dispatch cart update event (for real-time UI updates)
+      window.dispatchEvent(new Event("cartUpdate"));
+  
+      // ✅ Show success toast notification
+      toast.success("Item added to cart!", {
+        position: "top-right",
+        autoClose: 3000,
+      });
+    } catch (error) {
+      console.error("❌ Failed to add item to cart:", error);
+      toast.error("Failed to add item to cart. Please try again.", {
+        position: "top-right",
+        autoClose: 3000,
+      });
     }
-
-    localStorage.setItem("cart", JSON.stringify(cart));
-    window.dispatchEvent(new Event("cartUpdate")); // ✅ Notify cart update
-
-    toast.success("Item added to cart!", {
-      position: "top-right",
-      autoClose: 3000,
-    }); // ✅ Show toast notification
   };
-
+  
   return (
     <section className="  bg-yellow-50 flex-col items-center justify-center gap-6 px-6 text-center">
       {/* ✅ ToastContainer to display notifications */}

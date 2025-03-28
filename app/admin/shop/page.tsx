@@ -335,27 +335,36 @@ export default function AdminInventoryManagement() {
   };
 
   useEffect(() => {
+    if (typeof window === "undefined") return; // ✅ Prevent SSR errors
+  
     const fetchProducts = async () => {
       try {
-        const token = localStorage.getItem("token"); // ✅ Get stored token
+        const token = localStorage.getItem("token"); // ✅ Safe localStorage access
+        if (!token) {
+          setError("Authentication required. Please log in.");
+          setLoading(false);
+          return;
+        }
+  
         const response = await axios.get("http://127.0.0.1:8000/api/products", {
           headers: {
             Accept: "application/json",
-            Authorization: token ? `Bearer ${token}` : "", // ✅ Add authentication if available
+            Authorization: `Bearer ${token}`,
           },
         });
+  
         setProducts(response.data);
-        setLoading(false);
       } catch (error) {
-        console.error("Error fetching products:", error);
-        setError("Failed to load inventory. Please try again.");
-        setLoading(false);
+        console.error("❌ Error fetching products:", error);
+        setError("❌ Failed to load inventory. Please try again.");
+      } finally {
+        setLoading(false); // ✅ Ensure loading state is always updated
       }
     };
-
+  
     fetchProducts();
   }, []);
-
+  
   // Call this function after a successful payment to refresh the inventory list
   const refreshProducts = async () => {
     try {

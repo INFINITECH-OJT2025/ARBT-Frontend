@@ -48,16 +48,19 @@ export default function SubscriptionSection() {
     }
   };
 
-  const handlePlanSelection = (planName: string) => {
-    const token = localStorage.getItem("token"); // Check if the user is logged in
 
-    if (token) {
-      // ✅ If logged in, go to booking page with selected plan
-      router.push(`/booking?plan=${encodeURIComponent(planName)}`);
-    } else {
-      // ❌ If NOT logged in, go to login page
-      router.push("/login");
-    }
+  const handlePlanSelection = (planName: string) => {
+    if (typeof window === "undefined") return; // ✅ Ensure it's running on the client
+  
+    const router = useRouter(); // ✅ Define router inside the function
+    const token = localStorage.getItem("token"); // ✅ Get stored token
+  
+    // ✅ Determine the navigation route
+    const destination = token
+      ? `/booking?plan=${encodeURIComponent(planName)}` // If logged in, go to booking
+      : "/login"; // If NOT logged in, go to login
+  
+    router.push(destination);
   };
 
   return (

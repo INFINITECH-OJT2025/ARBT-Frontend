@@ -27,51 +27,67 @@ export default function AdminReviews() {
   }, []);
 
   const fetchReviews = async () => {
+    if (typeof window === "undefined") return; // ✅ Prevent SSR errors
+  
+    setLoading(true); // ✅ Ensure loading state is set before fetching
+  
     try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        setError("Unauthorized access. Please log in.");
+        return;
+      }
+  
       const response = await axios.get("http://127.0.0.1:8000/api/reviews", {
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        headers: { Authorization: `Bearer ${token}` },
       });
-
+  
       setReviews(response.data);
-    } catch (err) {
-      console.error("Error fetching reviews:", err);
-      setError("Failed to fetch reviews.");
+    } catch (err: any) {
+      console.error("❌ Error fetching reviews:", err);
+      setError(err.response?.data?.message || "Failed to fetch reviews.");
     } finally {
-      setLoading(false);
+      setLoading(false); // ✅ Ensure loading state updates correctly
     }
   };
 
-  const toggleStatus = async (reviewId: number, currentStatus: boolean) => {
-    const newStatus = !currentStatus;
+const toggleStatus = async (reviewId: number, currentStatus: boolean) => {
+  if (typeof window === "undefined") return; // ✅ Prevent SSR errors
 
-    if (
-      !window.confirm(
-        `Are you sure you want to ${newStatus ? "publish" : "unpublish"} this review?`
-      )
-    )
+  const newStatus = !currentStatus;
+
+  const confirmAction = window.confirm(
+    `Are you sure you want to ${newStatus ? "publish" : "unpublish"} this review?`
+  );
+  if (!confirmAction) return;
+
+  try {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      toast.error("Unauthorized action. Please log in.");
       return;
-
-    try {
-      await axios.patch(
-        `http://127.0.0.1:8000/api/reviews/${reviewId}/toggle-publish`,
-        {},
-        {
-          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-        }
-      );
-
-      setReviews((prev) =>
-        prev.map((review) =>
-          review.id === reviewId ? { ...review, published: newStatus } : review
-        )
-      );
-
-      toast.success(`Review ${newStatus ? "published" : "unpublished"} successfully!`);
-    } catch (err) {
-      console.error("❌ Error updating review status:", err);
-      alert("Failed to update review status.");
     }
-  };
+
+    await axios.patch(
+      `http://127.0.0.1:8000/api/reviews/${reviewId}/toggle-publish`,
+      {},
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+
+    setReviews((prev) =>
+      prev.map((review) =>
+        review.id === reviewId ? { ...review, published: newStatus } : review
+      )
+    );
+
+    toast.success(`✅ Review ${newStatus ? "published" : "unpublished"} successfully!`);
+  } catch (err: any) {
+    console.error("❌ Error updating review status:", err);
+    toast.error(err.response?.data?.message || "Failed to update review status.");
+  }
+};
 
   // Function to handle opening modal and setting the selected comment
   const openModal = (comment: string) => {

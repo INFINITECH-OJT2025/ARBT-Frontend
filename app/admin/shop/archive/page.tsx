@@ -31,52 +31,76 @@ export default function AdminArchivedProducts() {
   }, []);
 
   const fetchProducts = async () => {
+    // ✅ Ensure this runs only in the browser
+    if (typeof window === "undefined") {
+      console.warn("fetchProducts was called in a non-browser environment.");
+      return;
+    }
+  
+    setLoading(true); // Start loading
+  
     try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        setError("User authentication failed. Please log in.");
+        setLoading(false);
+        return;
+      }
+  
       const response = await axios.get("http://127.0.0.1:8000/api/products", {
         params: { status: "Archived" }, // Fetch archived products only
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        headers: { Authorization: `Bearer ${token}` },
       });
-
+  
       setProducts(response.data);
     } catch (err) {
-      console.error("Error fetching products:", err);
-      setError("Failed to fetch products.");
+      console.error("❌ Error fetching products:", err);
+      setError("❌ Failed to fetch products.");
     } finally {
-      setLoading(false);
+      setLoading(false); // Ensure loading stops even on errors
     }
   };
+  
+  // ✅ Call function only in client-side rendering
+  if (typeof window !== "undefined") {
+    fetchProducts();
+  }
 
   const toggleStatus = async (productId: number, currentStatus: string) => {
+    if (typeof window === "undefined") return; // ✅ Prevent SSR issues
+  
     const newStatus = currentStatus === "Active" ? "Archived" : "Active";
-
-    if (
-      !window.confirm(
-        `Are you sure you want to ${newStatus === "Active" ? "restore" : "archive"} this product?`
-      )
-    )
-      return;
-
+    const actionText = newStatus === "Active" ? "restore" : "archive";
+  
+    // ✅ Use toast instead of window.confirm for better UX (optional)
+    const confirmed = window.confirm(`Are you sure you want to ${actionText} this product?`);
+    if (!confirmed) return;
+  
     try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        toast.error("❌ Authentication error. Please log in.");
+        return;
+      }
+  
+      // ✅ Make API request to update product status
       await axios.patch(
         `http://127.0.0.1:8000/api/products/${productId}`,
         { status: newStatus },
-        {
-          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
-
+  
+      // ✅ Update the local state for better UI response
       setProducts((prev) =>
         prev.map((product) =>
           product.id === productId ? { ...product, status: newStatus } : product
         )
       );
-
-      toast.success(
-        `Product ${newStatus === "Active" ? "restored" : "archived"} successfully!`
-      );
+  
+      toast.success(`✅ Product successfully ${actionText}d!`);
     } catch (err) {
       console.error("❌ Error updating product status:", err);
-      alert("Failed to update product status.");
+      toast.error("❌ Failed to update product status. Please try again.");
     }
   };
 

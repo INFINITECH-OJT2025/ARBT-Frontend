@@ -23,33 +23,36 @@ export default function ProfilePage() {
   });
 
   useEffect(() => {
+    if (typeof window === "undefined") return; // ✅ Prevent SSR errors
+  
     const fetchProfile = async () => {
       try {
         const token = localStorage.getItem("token");
         if (!token) {
-          router.push("/login");
+          router.push("/login"); // ✅ Redirect to login if no token
           return;
         }
-
+  
         const response = await axios.get("http://127.0.0.1:8000/api/profile", {
           headers: { Authorization: `Bearer ${token}` },
         });
-
+  
         setUser(response.data);
         setFormData({
           ...response.data,
-          password: "",
+          password: "", // ✅ Prevent exposing passwords
           password_confirmation: "",
         });
       } catch (err) {
-        toast.error("Failed to load profile!", { position: "top-right" });
+        console.error("❌ Error loading profile:", err);
+        toast.error("❌ Failed to load profile!", { position: "top-right" });
       } finally {
-        setLoading(false);
+        setLoading(false); // ✅ Ensure loading state updates correctly
       }
     };
-
+  
     fetchProfile();
-  }, [router]);
+  }, [router]); // ✅ `router` dependency is fine here
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -58,7 +61,8 @@ export default function ProfilePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
+  
+    // ✅ Check if any changes were made
     if (
       user.name === formData.name &&
       user.email === formData.email &&
@@ -68,31 +72,39 @@ export default function ProfilePage() {
       toast.info("No changes detected.");
       return;
     }
-
+  
+    // ✅ Prevent names from containing numbers
     if (/\d/.test(formData.name)) {
+      toast.error("Name cannot contain numbers.");
       return;
     }
-
-    const confirmUpdate = window.confirm(
-      "Are you sure you want to update your profile?"
-    );
+  
+    // ✅ Ask for confirmation before updating
+    const confirmUpdate = window.confirm("Are you sure you want to update your profile?");
     if (!confirmUpdate) return;
-
+  
     try {
       const token = localStorage.getItem("token");
-
+      if (!token) {
+        toast.error("Unauthorized! Please log in.");
+        router.push("/login");
+        return;
+      }
+  
       const response = await axios.put(
         "http://127.0.0.1:8000/api/profile/update",
         formData,
         { headers: { Authorization: `Bearer ${token}` } }
       );
-
+  
       setUser(response.data.user);
-      toast.success("Profile updated successfully!");
+      toast.success("✅ Profile updated successfully!");
     } catch (err) {
-      toast.error("Failed to update profile. Please try again.");
+      console.error("❌ Error updating profile:", err);
+      toast.error("❌ Failed to update profile. Please try again.");
     }
   };
+  
 
   if (loading) return <p className="text-center">Loading...</p>;
 

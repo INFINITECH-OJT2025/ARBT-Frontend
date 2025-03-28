@@ -37,18 +37,21 @@ export default function BookingPage() {
   // ✅ Fetch logged-in user details
   useEffect(() => {
     const fetchUserProfile = async () => {
-      try {
-        const token = localStorage.getItem("token");
-        if (!token) {
-          router.push("/login");
-          return;
-        }
+      if (typeof window === "undefined") return; // ✅ Prevents SSR issues
 
+      const router = useRouter(); // ✅ Get router inside useEffect
+      const token = localStorage.getItem("token");
+
+      if (!token) {
+        router.push("/login");
+        return;
+      }
+
+      try {
         const response = await axios.get("http://127.0.0.1:8000/api/profile", {
           headers: { Authorization: `Bearer ${token}` },
         });
 
-        // Populate formData with the user details
         setFormData((prev) => ({
           ...prev,
           name: response.data.name,
@@ -57,13 +60,13 @@ export default function BookingPage() {
         }));
       } catch (error) {
         console.error("❌ Failed to fetch user profile:", error);
+      } finally {
+        setLoadingUser(false); // ✅ Ensures loading state is updated
       }
-      setLoadingUser(false); // ✅ Mark user data as loaded
     };
 
     fetchUserProfile();
-  }, [router]);
-
+  }, []);
   // ✅ Set the minimum selectable date & time
   useEffect(() => {
     const now = new Date();
@@ -93,7 +96,7 @@ export default function BookingPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-
+  
     // Validate contact number
     const contactNumberError = validateContactNumber(formData.contact_number);
     if (contactNumberError) {
@@ -106,7 +109,7 @@ export default function BookingPage() {
     } else {
       setErrors((prevErrors) => ({ ...prevErrors, contact_number: "" }));
     }
-
+  
     // Ensure the datetime is valid
     if (!formData.datetime) {
       setErrors((prevErrors) => ({
@@ -116,11 +119,11 @@ export default function BookingPage() {
       setLoading(false);
       return;
     }
-
+  
     const selectedDateTime = new Date(formData.datetime);
-    const day = selectedDateTime.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+    const day = selectedDateTime.getDay();
     const hours = selectedDateTime.getHours();
-
+  
     // Ensure the date is within Monday to Friday and 8 AM to 4 PM
     if (day === 0 || day === 6) {
       setErrors((prevErrors) => ({
@@ -139,33 +142,42 @@ export default function BookingPage() {
     } else {
       setErrors((prevErrors) => ({ ...prevErrors, datetime: "" }));
     }
-
-    // Proceed with the booking if all validations are passed
-    try {
-      const token = localStorage.getItem("token");
-
-      await axios.post("http://127.0.0.1:8000/api/bookings", formData, {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      toast.success("Booking Confirmed!"); // ✅ Show success toast
-
-      // ✅ Reset ONLY datetime and service fields after booking
-      setFormData((prevData) => ({
-        ...prevData, // Keep the other fields unchanged
-        datetime: "", // Reset date & time
-        service: "", // Reset service selection
-      }));
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "❌ Something went wrong!"); // ❌ Show error toast
+  
+    // ✅ Ensure this runs only in the browser
+    if (typeof window !== "undefined") {
+      try {
+        const token = localStorage.getItem("token");
+        if (!token) {
+          toast.error("❌ User authentication failed. Please log in again.");
+          setLoading(false);
+          return;
+        }
+  
+        await axios.post("http://127.0.0.1:8000/api/bookings", formData, {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+  
+        toast.success("✅ Booking Confirmed!");
+  
+        // ✅ Reset ONLY datetime and service fields after booking
+        setFormData((prevData) => ({
+          ...prevData,
+          datetime: "",
+          service: "",
+        }));
+      } catch (error: any) {
+        toast.error(error.response?.data?.message || "❌ Something went wrong!");
+      }
+    } else {
+      console.warn("handleSubmit was called in a non-browser environment.");
     }
-
+  
     setLoading(false);
   };
-
+  
   // Handle Date & Time Validation
   const handleDateTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedDateTime = new Date(e.target.value);

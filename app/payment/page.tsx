@@ -24,41 +24,52 @@ export default function PaymentPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // ✅ Get cart data
-    const storedCart = localStorage.getItem("cart");
-    if (storedCart) {
-      setCartItems(JSON.parse(storedCart));
-    }
-
-    // ✅ Fetch userId from localStorage on client-side
-    const fetchedUserId = localStorage.getItem("user_id");
-    setUserId(fetchedUserId); // Store it in the state
-
-    // ✅ Fetch service fee
-    const fetchServiceFee = async () => {
-      try {
-        if (!fetchedUserId) return;
-
-        const response = await fetch("http://127.0.0.1:8000/api/shipping-fee", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-          body: JSON.stringify({ user_id: fetchedUserId }),
-        });
-
-        const data = await response.json();
-        if (response.ok) {
-          setServiceFee(data.shipping_fee);
+    if (typeof window === "undefined") return; // ✅ Ensure client-side execution
+  
+    try {
+      // ✅ Get cart data safely
+      const storedCart = localStorage.getItem("cart");
+      if (storedCart) {
+        try {
+          setCartItems(JSON.parse(storedCart)); // ✅ Handle potential JSON errors
+        } catch (err) {
+          console.error("❌ Error parsing cart data:", err);
+          setCartItems([]); // Fallback to empty cart
         }
-      } catch (error) {
-        console.error("Service fee fetch failed:", error);
       }
-    };
-
-    fetchServiceFee();
-  }, []); // Empty dependency array to run once on component mount
+  
+      // ✅ Fetch userId from localStorage safely
+      const fetchedUserId = localStorage.getItem("user_id") || "";
+      setUserId(fetchedUserId);
+  
+      // ✅ Fetch service fee only if userId exists
+      const fetchServiceFee = async () => {
+        if (!fetchedUserId) return;
+  
+        try {
+          const response = await fetch("http://127.0.0.1:8000/api/shipping-fee", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
+            body: JSON.stringify({ user_id: fetchedUserId }),
+          });
+  
+          if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+  
+          const data = await response.json();
+          setServiceFee(data.shipping_fee);
+        } catch (error) {
+          console.error("❌ Service fee fetch failed:", error);
+        }
+      };
+  
+      fetchServiceFee();
+    } catch (error) {
+      console.error("❌ Error in useEffect:", error);
+    }
+  }, []); // ✅ Empty dependency array to run once on mount
 
   // ✅ Calculate total price
   const totalPrice = cartItems.reduce(
@@ -77,12 +88,17 @@ export default function PaymentPage() {
 
   const handlePayment = async () => {
     if (paymentMethod === "gcash" && !paymentProof) {
-      // Alert if no payment proof is uploaded for GCash
       alert("❌ Please upload a payment proof image for GCash.");
       return; // Stop the payment process
     }
   
     setLoading(true);
+  
+    if (typeof window === "undefined") {
+      console.error("❌ Window object not available.");
+      setLoading(false);
+      return;
+    }
   
     const token = localStorage.getItem("token");
   
@@ -103,22 +119,19 @@ export default function PaymentPage() {
       formData.append(`items[${index}][quantity]`, item.quantity.toString());
     });
   
-    // ✅ Only append `payment_proof` if it exists and the payment method is "gcash"
+    // ✅ Append `payment_proof` only if it exists and method is "gcash"
     if (paymentProof && paymentMethod === "gcash") {
-      formData.append("payment_proof", paymentProof);
+      formData.append("payment_proof", paymentProof as Blob); // Ensure correct type
     }
   
     try {
-      const response = await fetch(
-        "http://127.0.0.1:8000/api/payment-process",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          body: formData, // ✅ Sending as `FormData`
-        }
-      );
+      const response = await fetch("http://127.0.0.1:8000/api/payment-process", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData, // ✅ Sending as `FormData`
+      });
   
       const data = await response.json();
   
@@ -126,20 +139,30 @@ export default function PaymentPage() {
         alert("✅ Payment Successful! Redirecting...");
         localStorage.removeItem("cart");
         window.dispatchEvent(new Event("cartUpdate"));
-        router.push("/tracker");
+  
+        if (typeof router !== "undefined") {
+          router.push("/tracker");
+        } else {
+          console.warn("⚠️ Router is not available.");
+        }
       } else {
         alert(`❌ Payment failed: ${data.error || "Unknown error"}`);
       }
-    } catch (error) {
-      console.error("Payment failed:", error);
-      alert(
-        `❌ Payment failed: ${error.message || "An unexpected error occurred."}`
-      );
+    } catch (error: unknown) {
+      console.error("❌ Payment failed:", error);
+  
+      let errorMessage = "An unexpected error occurred.";
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === "string") {
+        errorMessage = error;
+      }
+  
+      alert(`❌ Payment failed: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
   };
-  
 
   return (
 <div className="min-h-screen py-6 px-4 flex flex-col items-center bg-yellow-50">
