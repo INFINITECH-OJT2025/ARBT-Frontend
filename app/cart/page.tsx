@@ -15,11 +15,18 @@ type Product = {
 export default function CartPage() {
   const [cartItems, setCartItems] = useState<Product[]>([]);
   const router = useRouter();
-  const userId = localStorage.getItem("userId");
+  const [userId, setUserId] = useState<string | null>(null);
+  // const userId = localStorage.getItem("userId");
   // console.log("User ID from localStorage:", userId);
   // Check if userId is fetched correctly
 
 
+  useEffect(() => {
+    const storedId = localStorage.getItem("userId");
+    if (storedId) {
+      setUserId(storedId);
+    }
+  }, []);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
